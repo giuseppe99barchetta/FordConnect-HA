@@ -2,6 +2,8 @@
 
 Ford Connect is a Home Assistant custom integration for the official FordConnect Query API. It uses Ford OAuth, the documented query endpoints, and no reverse-engineered FordPass API.
 
+[![Open your Home Assistant instance and add this repository to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=giuseppe99barchetta&repository=FordConnect-HA&category=integration)
+
 ## Authentication and Ford Developer Portal
 
 Create a FordConnect application at [Ford Developer](https://developer.ford.com), then choose the same authentication mode in the portal and in Home Assistant:
@@ -19,7 +21,20 @@ The configured Ford redirect must exactly match the selected mode. Prefer config
 
 Keep the Client ID, Client Secret, callback URL, authorization code, tokens, full VIN, and location private.
 
-## Installation and setup
+## Installation
+
+### HACS (recommended)
+
+Published GitHub Releases are the recommended stable versions.
+
+1. Open **HACS** in Home Assistant.
+2. Open **Integrations**, then the top-right **⋮** menu and select **Custom repositories**.
+3. Add `https://github.com/giuseppe99barchetta/FordConnect-HA` with category **Integration**. Alternatively, use the HACS button above.
+4. Find **Ford Connect** in HACS and install it.
+5. Restart Home Assistant.
+6. Go to **Settings → Devices & services → Add integration**, then select **Ford Connect**.
+
+### Manual installation
 
 Copy `custom_components/ford_connect` into Home Assistant’s `config/custom_components/ford_connect`, restart Home Assistant, add Ford Connect application credentials, then add the integration. The integration preserves Ford’s rotating refresh token and uses the exact redirect URI selected at initial authorization for both token exchange and refresh.
 
@@ -53,3 +68,7 @@ Diagnostics contain capability names, metric timestamps, and endpoint status onl
 ## Development
 
 Run `ruff check .`, JSON validation, and `pytest`. Test fixtures must stay anonymized and must never contain real Ford account data.
+
+## Trademark notice
+
+Ford, the Ford logo, FordConnect, and related marks are trademarks of Ford Motor Company. This project is an unofficial community integration and is not affiliated with, endorsed by, or sponsored by Ford Motor Company. The marks are used only to identify the supported service and product.
