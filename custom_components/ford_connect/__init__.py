@@ -5,15 +5,23 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers import config_entry_oauth2_flow, config_validation as cv
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 from .api import FordConnectApi
-from .const import AUTH_MODE_MANUAL, CONF_AUTH_MODE, MANUAL_REDIRECT_URI, PLATFORMS
+from .const import (
+    AUTH_MODE_MANUAL,
+    CONF_AUTH_MODE,
+    DOMAIN,
+    MANUAL_REDIRECT_URI,
+    PLATFORMS,
+)
 from .coordinator import FordConnectCoordinator
 from .oauth import async_register_callback_view
 
 type FordConnectConfigEntry = ConfigEntry[FordConnectCoordinator]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

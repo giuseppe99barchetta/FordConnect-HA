@@ -150,8 +150,11 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
             result = err
         self._endpoint_updated[name] = now
         if isinstance(result, FordConnectAuthenticationError):
-            raise result
-        if isinstance(result, FordConnectUnsupportedError):
+            # Some optional Ford resources can require an entitlement that is
+            # independent from the token used successfully for telemetry.
+            # Keep the core coordinator available in that case.
+            self._endpoint_status[name] = "error"
+        elif isinstance(result, FordConnectUnsupportedError):
             self._endpoint_status[name] = "unsupported"
         elif isinstance(result, FordConnectRateLimitError):
             self._endpoint_status[name] = "rate_limited"

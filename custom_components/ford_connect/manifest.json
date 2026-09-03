@@ -3,7 +3,7 @@
   "name": "Ford Connect",
   "codeowners": ["@giuseppe99barchetta"],
   "config_flow": true,
-  "dependencies": ["application_credentials", "auth"],
+  "dependencies": ["application_credentials", "auth", "http"],
   "documentation": "https://github.com/giuseppe99barchetta/FordConnect-HA",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/giuseppe99barchetta/FordConnect-HA/issues",
