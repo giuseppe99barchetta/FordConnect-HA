@@ -67,8 +67,25 @@ class FordConnectConfigFlow(
             )
         self._auth_mode = user_input[CONF_AUTH_MODE]
         if self._auth_mode == AUTH_MODE_MANUAL:
+            if not await self._async_select_manual_implementation():
+                return self.async_abort(reason="oauth_implementation_unavailable")
             return await self.async_step_manual_auth()
-        return await super().async_step_user(user_input)
+        # auth_mode belongs to this integration, not Home Assistant's OAuth
+        # implementation picker (which expects an "implementation" field).
+        return await super().async_step_user()
+
+    async def _async_select_manual_implementation(self) -> bool:
+        """Select the sole Application Credentials implementation for manual OAuth."""
+        try:
+            implementations = await config_entry_oauth2_flow.async_get_implementations(
+                self.hass, self.DOMAIN
+            )
+        except config_entry_oauth2_flow.ImplementationUnavailableError:
+            return False
+        if len(implementations) != 1:
+            return False
+        self.flow_impl = next(iter(implementations.values()))
+        return True
 
     async def async_step_manual_auth(
         self, user_input: dict[str, Any] | None = None

@@ -92,12 +92,15 @@ class FordConnectApi:
         """Get a JSON resource and retry exactly once after a 401 refresh."""
         for attempt in range(2):
             try:
+                request_kwargs: dict[str, Any] = {"timeout": 30}
+                if params is not None:
+                    request_kwargs["params"] = params
+                if headers is not None:
+                    request_kwargs["headers"] = headers
                 response = await self._oauth_session.async_request(
                     "GET",
                     f"{API_BASE_URL}{path}",
-                    timeout=30,
-                    params=params,
-                    headers=headers,
+                    **request_kwargs,
                 )
             except ClientError as err:
                 raise FordConnectApiError(

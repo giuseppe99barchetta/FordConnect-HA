@@ -132,7 +132,9 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
         }
         if not due:
             return
-        results = await asyncio.gather(*due.values(), return_exceptions=True)
+        results = await asyncio.gather(
+            *(request() for request in due.values()), return_exceptions=True
+        )
         for name, result in zip(due, results, strict=True):
             self._endpoint_updated[name] = now
             if isinstance(result, FordConnectAuthenticationError):

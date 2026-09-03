@@ -129,6 +129,8 @@ def test_all_verified_query_methods_use_shared_authenticated_get(api_module) -> 
         "https://ford.example/fcon-query/v1/electric/charge-schedules",
         "https://ford.example/fcon-query/v1/fccs",
     ]
+    assert "headers" not in session.requests[0][1]
+    assert "params" not in session.requests[0][1]
     assert session.requests[-1][1]["headers"] == {"chargingStationId": "station"}
 
 

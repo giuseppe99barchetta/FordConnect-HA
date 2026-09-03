@@ -135,6 +135,7 @@ def oauth_modules(monkeypatch):
     oauth_flow.AbstractOAuth2Implementation = object
     oauth_flow.AbstractOAuth2FlowHandler = _OAuthFlowHandler
     oauth_flow.LocalOAuth2Implementation = _LocalOAuth2Implementation
+    oauth_flow.async_get_implementations = AsyncMock(return_value={})
     util = ModuleType("homeassistant.util")
     hass_dict = ModuleType("homeassistant.util.hass_dict")
     hass_dict.HassKey = _HassKey
@@ -423,6 +424,19 @@ def test_missing_external_url_is_a_clean_config_flow_abort(oauth_modules) -> Non
     assert asyncio.run(handler.async_step_auth()) == {
         "type": "abort",
         "reason": "external_url_required",
+    }
+
+
+def test_automatic_mode_does_not_pass_custom_field_to_oauth_picker(
+    oauth_modules,
+) -> None:
+    """Home Assistant's OAuth picker expects implementation, not auth_mode."""
+    _, _, config_flow = oauth_modules
+    handler = config_flow.FordConnectConfigFlow()
+    handler.hass = _Hass()
+    assert asyncio.run(handler.async_step_user({"auth_mode": "automatic"})) == {
+        "type": "user",
+        "input": None,
     }
 
 
