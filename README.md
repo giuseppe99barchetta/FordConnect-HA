@@ -13,19 +13,19 @@ Ford metrics are optional. A missing metric does not prevent the other entities 
 ## Ford Developer Portal configuration
 
 1. Create or open your FordConnect application in the Ford Developer Portal.
-2. Register this redirect URI exactly:
+2. Configure Home Assistant's **External URL** with its publicly reachable HTTPS URL, then register this redirect URI exactly:
 
    ```text
-   https://my.home-assistant.io/redirect/oauth
+   <HOME_ASSISTANT_EXTERNAL_URL>/api/ford_connect/oauth/callback
    ```
 
-   This is the preferred Home Assistant OAuth callback. If My Home Assistant is disabled, register your externally reachable Home Assistant URL instead, including the exact callback path:
+   For example:
 
    ```text
-   https://your-home-assistant.example/auth/external/callback
+   https://home.example.com/api/ford_connect/oauth/callback
    ```
 
-   The external URL must use HTTPS and must be reachable by the browser after Ford login. Do not use the manual-test `localhost:8080/callback` URI for this integration.
+   Ford requires HTTPS for non-localhost redirect URIs. The URL must be externally reachable after Ford login and must match the Developer Portal entry exactly. Do not add a trailing slash. Ford redirect validation has shown quirks, so configure one Ford redirect URI where possible. Do not use the manual-test `localhost:8080/callback`, `https://my.home-assistant.io/redirect/oauth`, or Home Assistant's `/auth/external/callback` for this integration.
 3. Keep the generated Client ID and Client Secret private. Do not commit either value, authorization codes, refresh tokens, access tokens, VINs, or vehicle coordinates.
 
 ## Installation
@@ -34,9 +34,9 @@ Copy this repository's `custom_components/ford_connect` directory to Home Assist
 
 ## Configuration
 
-1. In Home Assistant, open **Settings → Devices & services → Application credentials**.
+1. In Home Assistant, open **Settings -> Devices & services -> Application credentials**.
 2. Add **Ford Connect** and enter the Client ID and Client Secret created in Ford Developer Portal.
-3. Open **Settings → Devices & services → Add integration**, select **Ford Connect**, and complete Ford's login page.
+3. Open **Settings -> Devices & services -> Add integration**, select **Ford Connect**, and complete Ford's login page.
 
 Home Assistant stores the OAuth token inside the config entry using its normal encrypted-storage mechanisms. Ford rotates refresh tokens; the implementation atomically replaces both access and refresh tokens after every refresh. A rejected token triggers one refresh and request retry, then Home Assistant requests reauthentication if it still fails.
 

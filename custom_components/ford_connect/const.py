@@ -16,6 +16,9 @@ TOKEN_URL: Final = (
 )
 
 OAUTH_AUTHORIZE_SCOPE: Final = "openid offline_access"
+OAUTH_TOKEN_SCOPE: Final = "{client_id} offline_access openid"
+OAUTH_CALLBACK_PATH: Final = "/api/ford_connect/oauth/callback"
+OAUTH_STATE_TTL: Final = timedelta(minutes=10)
 PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.DEVICE_TRACKER]
 UPDATE_INTERVAL: Final = timedelta(minutes=15)
 

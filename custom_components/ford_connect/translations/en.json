@@ -8,6 +8,7 @@
       "oauth_unauthorized": "Ford Connect rejected the authorization request.",
       "oauth_timeout": "Ford Connect OAuth timed out.",
       "oauth_error": "Ford Connect returned an invalid OAuth response.",
+      "external_url_required": "Ford Connect requires a configured, externally reachable HTTPS URL. Set Home Assistant's External URL and try again.",
       "reauth_successful": "Reauthentication was successful."
     },
     "step": {

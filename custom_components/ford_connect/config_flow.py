@@ -11,6 +11,7 @@ from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.helpers import config_entry_oauth2_flow
 
 from .const import DOMAIN, NAME
+from .oauth import FordConnectExternalUrlError, async_register_callback_view
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,12 +21,29 @@ class FordConnectConfigFlow(
 ):
     """Handle a Ford Connect OAuth2 configuration flow."""
 
+    DOMAIN = DOMAIN
     VERSION = 1
 
     @property
     def logger(self) -> logging.Logger:
         """Return the integration logger required by the OAuth2 base flow."""
         return _LOGGER
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Start OAuth after making the integration callback available."""
+        async_register_callback_view(self.hass)
+        return await super().async_step_user(user_input)
+
+    async def async_step_auth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Return a useful error when Home Assistant has no HTTPS external URL."""
+        try:
+            return await super().async_step_auth(user_input)
+        except FordConnectExternalUrlError:
+            return self.async_abort(reason="external_url_required")
 
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
