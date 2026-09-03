@@ -9,7 +9,7 @@ from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 from .api import FordConnectApi
-from .const import PLATFORMS
+from .const import AUTH_MODE_MANUAL, CONF_AUTH_MODE, MANUAL_REDIRECT_URI, PLATFORMS
 from .coordinator import FordConnectCoordinator
 from .oauth import async_register_callback_view
 
@@ -51,3 +51,21 @@ async def async_unload_entry(
 ) -> bool:
     """Unload a Ford Connect configuration entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Record the redirect mode for entries created before mode selection existed."""
+    if entry.version > 2:
+        return False
+    if entry.version < 2:
+        token = entry.data.get("token", {})
+        redirect_uri = (
+            token.get("_ford_redirect_uri") if isinstance(token, dict) else None
+        )
+        auth_mode = (
+            AUTH_MODE_MANUAL if redirect_uri == MANUAL_REDIRECT_URI else "automatic"
+        )
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_AUTH_MODE: auth_mode}, version=2
+        )
+    return True

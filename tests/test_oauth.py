@@ -142,6 +142,12 @@ def oauth_modules(monkeypatch):
     aiohttp.web = SimpleNamespace(Response=_Response, Request=object)
     yarl = ModuleType("yarl")
     yarl.URL = _URL
+    selector = ModuleType("homeassistant.helpers.selector")
+    selector.SelectSelector = lambda value: value
+    selector.SelectSelectorConfig = lambda **kwargs: kwargs
+    voluptuous = ModuleType("voluptuous")
+    voluptuous.Schema = lambda value: value
+    voluptuous.Required = lambda value: value
 
     for name, module in {
         "homeassistant": homeassistant,
@@ -153,10 +159,12 @@ def oauth_modules(monkeypatch):
         "homeassistant.helpers": helpers,
         "homeassistant.helpers.network": network,
         "homeassistant.helpers.config_entry_oauth2_flow": oauth_flow,
+        "homeassistant.helpers.selector": selector,
         "homeassistant.util": util,
         "homeassistant.util.hass_dict": hass_dict,
         "aiohttp": aiohttp,
         "yarl": yarl,
+        "voluptuous": voluptuous,
     }.items():
         monkeypatch.setitem(sys.modules, name, module)
 
@@ -168,6 +176,10 @@ def oauth_modules(monkeypatch):
     const.OAUTH_AUTHORIZE_SCOPE = "openid offline_access"
     const.OAUTH_TOKEN_SCOPE = "{client_id} offline_access openid"
     const.OAUTH_CALLBACK_PATH = "/api/ford_connect/oauth/callback"
+    const.MANUAL_REDIRECT_URI = "http://localhost:8080/callback"
+    const.AUTH_MODE_AUTOMATIC = "automatic"
+    const.AUTH_MODE_MANUAL = "manual"
+    const.CONF_AUTH_MODE = "auth_mode"
     from datetime import timedelta
 
     const.OAUTH_STATE_TTL = timedelta(minutes=10)
@@ -421,3 +433,58 @@ def test_callback_view_is_registered_only_once(oauth_modules) -> None:
     oauth.async_register_callback_view(hass)
     oauth.async_register_callback_view(hass)
     assert len(hass.http.views) == 1
+
+
+def test_manual_callback_consumes_matching_localhost_state(oauth_modules) -> None:
+    """Manual mode accepts the complete Ford callback URL, not just its code."""
+    oauth, application, _ = oauth_modules
+    hass = _Hass(None)
+    query = _query(
+        asyncio.run(
+            _implementation(application, hass).async_generate_manual_authorize_url(
+                "manual-flow"
+            )
+        )
+    )
+    result = oauth.async_parse_manual_callback(
+        hass,
+        "manual-flow",
+        f"http://localhost:8080/callback?code=manual-code&state={query['state']}",
+    )
+    assert result == {
+        "code": "manual-code",
+        "redirect_uri": "http://localhost:8080/callback",
+    }
+
+
+@pytest.mark.parametrize(
+    "callback_url",
+    [
+        "https://localhost:8080/callback?code=x&state=y",
+        "http://localhost:8081/callback?code=x&state=y",
+        "http://example.com:8080/callback?code=x&state=y",
+        "http://localhost:8080/not-callback?code=x&state=y",
+    ],
+)
+def test_manual_callback_rejects_non_exact_redirect(
+    oauth_modules, callback_url
+) -> None:
+    """The localhost callback must have Ford's exact registered redirect URI."""
+    oauth, _, _ = oauth_modules
+    with pytest.raises(ValueError, match="invalid_callback"):
+        oauth.async_parse_manual_callback(_Hass(), "flow", callback_url)
+
+
+def test_manual_callback_rejects_replay_and_flow_mismatch(oauth_modules) -> None:
+    """Manual state is bound to one flow and cannot be submitted twice."""
+    oauth, _, _ = oauth_modules
+    hass = _Hass()
+    state = oauth.async_create_pending_state(
+        hass, "one", "http://localhost:8080/callback"
+    )
+    url = f"http://localhost:8080/callback?code=x&state={state}"
+    with pytest.raises(ValueError, match="invalid_state"):
+        oauth.async_parse_manual_callback(hass, "two", url)
+    assert oauth.async_parse_manual_callback(hass, "one", url)["code"] == "x"
+    with pytest.raises(ValueError, match="invalid_state"):
+        oauth.async_parse_manual_callback(hass, "one", url)

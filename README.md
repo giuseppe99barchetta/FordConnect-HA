@@ -1,51 +1,55 @@
 # Ford Connect for Home Assistant
 
-Ford Connect is a native Home Assistant custom integration for Ford vehicles using the official FordConnect APIs at `developer.ford.com`. It uses only the documented OAuth, garage, and telemetry endpoints; it does not use reverse-engineered FordPass endpoints or enable remote commands.
+Ford Connect is a Home Assistant custom integration for the official FordConnect Query API. It uses Ford OAuth, the documented query endpoints, and no reverse-engineered FordPass API.
 
-## Current status
+## Authentication and Ford Developer Portal
 
-This is an installable first release for telemetry. It creates one Home Assistant device per vehicle returned by Ford's garage endpoint and updates the account every 15 minutes. The interval is deliberately conservative to respect cellular connectivity and Ford API limits.
+Create a FordConnect application at [Ford Developer](https://developer.ford.com), then choose the same authentication mode in the portal and in Home Assistant:
 
-Supported entities include fuel, range, odometer, battery voltage/state of charge, oil life, temperatures, speed, engine speed, heading, compass direction, four kPa tire-pressure sensors, status binary sensors, individually identified doors, and a GPS device tracker.
+| Mode | Home Assistant Internet exposure | Ford Redirect URI |
+| --- | --- | --- |
+| Automatic | External HTTPS URL or Home Assistant Cloud required | `<EXTERNAL_URL>/api/ford_connect/oauth/callback` |
+| Manual | Not required | `http://localhost:8080/callback` |
 
-Ford metrics are optional. A missing metric does not prevent the other entities from updating. The integration retains Ford's individual `updateTime` as `ford_update_time` when supplied: this is the timestamp of that metric, not a claim that the value is real-time.
+Automatic is the easiest mode when Home Assistant already has a working public HTTPS address (Home Assistant Cloud, reverse proxy, or tunnel). Ford redirects to the integration’s protected callback after login.
 
-## Ford Developer Portal configuration
+Manual is for LAN-only Home Assistant. It needs no port forwarding, reverse proxy, Cloudflare Tunnel, public DNS, or Home Assistant Cloud. Register exactly `http://localhost:8080/callback`, select **Manual** in the setup flow, open the presented Ford authorization link, and sign in. Ford will redirect the browser to localhost; a connection failure is expected because no localhost server is required. Copy the **complete** URL from the browser address bar and paste it into Home Assistant. Do not extract only the code.
 
-1. Create or open your FordConnect application in the Ford Developer Portal.
-2. Configure Home Assistant's **External URL** with its publicly reachable HTTPS URL, then register this redirect URI exactly:
+The configured Ford redirect must exactly match the selected mode. Prefer configuring only the redirect you plan to use if Ford’s portal does not reliably support both. Do not use `https://my.home-assistant.io/redirect/oauth`: Ford rejects Home Assistant’s JWT-style OAuth state.
 
-   ```text
-   <HOME_ASSISTANT_EXTERNAL_URL>/api/ford_connect/oauth/callback
-   ```
+Keep the Client ID, Client Secret, callback URL, authorization code, tokens, full VIN, and location private.
 
-   For example:
+## Installation and setup
 
-   ```text
-   https://home.example.com/api/ford_connect/oauth/callback
-   ```
+Copy `custom_components/ford_connect` into Home Assistant’s `config/custom_components/ford_connect`, restart Home Assistant, add Ford Connect application credentials, then add the integration. The integration preserves Ford’s rotating refresh token and uses the exact redirect URI selected at initial authorization for both token exchange and refresh.
 
-   Ford requires HTTPS for non-localhost redirect URIs. The URL must be externally reachable after Ford login and must match the Developer Portal entry exactly. Do not add a trailing slash. Ford redirect validation has shown quirks, so configure one Ford redirect URI where possible. Do not use the manual-test `localhost:8080/callback`, `https://my.home-assistant.io/redirect/oauth`, or Home Assistant's `/auth/external/callback` for this integration.
-3. Keep the generated Client ID and Client Secret private. Do not commit either value, authorization codes, refresh tokens, access tokens, VINs, or vehicle coordinates.
+## Support matrix
 
-## Installation
+| Feature | Support |
+| --- | --- |
+| Garage / vehicle discovery | Yes |
+| Vehicle telemetry | Yes, when returned by Ford |
+| Fuel, range, GPS, tires, doors, locks | Yes, when returned by Ford |
+| Vehicle health alerts API | Queried and retained safely; schema-specific mapping awaits developer schema access |
+| Wallbox API | Queried when available; no wallbox is treated as unsupported |
+| EV departure times / charge schedules APIs | Queried when available; ICE accounts are supported normally |
+| Charging station activity (FCCS) | Client method available only with a discovered station ID; never guessed or polled automatically |
+| Remote commands | Not supported: no verified official FordConnect command endpoint is implemented |
 
-Copy this repository's `custom_components/ford_connect` directory to Home Assistant's `config/custom_components/ford_connect` directory, then restart Home Assistant. For HACS, add the repository as a custom integration after publishing it to GitHub.
+An API being available does not mean a particular vehicle or account exposes that capability.
 
-## Configuration
+## Entities
 
-1. In Home Assistant, open **Settings -> Devices & services -> Application credentials**.
-2. Add **Ford Connect** and enter the Client ID and Client Secret created in Ford Developer Portal.
-3. Open **Settings -> Devices & services -> Add integration**, select **Ford Connect**, and complete Ford's login page.
+The device page is capability-aware. Everyday telemetry is enabled by default: vehicle/fuel, 12-V battery state, engine, doors and security, tires, and location. Native units are used for percentages, km, °C, km/h, V, kPa, rpm, and heading degrees. Ford’s per-metric `updateTime` is exposed as `ford_update_time`, so stale cloud telemetry is not implied to be real-time.
 
-Home Assistant stores the OAuth token inside the config entry using its normal encrypted-storage mechanisms. Ford rotates refresh tokens; the implementation atomically replaces both access and refresh tokens after every refresh. A rejected token triggers one refresh and request retry, then Home Assistant requests reauthentication if it still fails.
+Low-level diagnostics such as acceleration axes, pedal/torque values, yaw rate, gear/lifecycle modes, seat belt status, remote-start configuration, and display units are added only when Ford provides them and are disabled by default to keep the device page usable. Window position is deliberately not inferred because the available telemetry range semantics are not yet documented.
 
-## Privacy and limits
+## Polling, privacy, and errors
 
-The integration does not log credentials, authorization codes, access or refresh tokens, full VINs, or GPS coordinates. Debug output is intentionally limited to non-sensitive operational errors. GPS coordinates are exposed only to the local Home Assistant device tracker entity.
+Garage and telemetry refresh about every 15 minutes. Vehicle health refreshes hourly; wallbox and EV schedules refresh every six hours. Optional endpoint failures, unsupported 404 responses, or an absent EV capability do not make vehicle telemetry unavailable. 401 refreshes once, 429 honors `Retry-After`, and server/network failures remain temporary coordinator errors.
 
-Ford can return stale metric values, and endpoint availability, permissions, vehicle capabilities, and rate limits vary by account and vehicle. HTTP 429 responses are not retried in a loop; `Retry-After`, when supplied, blocks subsequent coordinator requests until that interval has elapsed. Remote lock, unlock, remote start, horn, and lights are deliberately not implemented because no verified official FordConnect command endpoint is included here.
+Diagnostics contain capability names, metric timestamps, and endpoint status only. They exclude credentials, tokens, codes, full identifiers, VIN, coordinates, precise location, and wallbox identifiers. The integration does not log those values.
 
 ## Development
 
-Run the included unit tests with a Home Assistant development environment. The test fixtures must remain anonymized and must never contain real Ford account data.
+Run `ruff check .`, JSON validation, and `pytest`. Test fixtures must stay anonymized and must never contain real Ford account data.

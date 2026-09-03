@@ -6,6 +6,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS, HomeAssistantView
@@ -13,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.util.hass_dict import HassKey
 
-from .const import DOMAIN, OAUTH_CALLBACK_PATH, OAUTH_STATE_TTL
+from .const import (
+    DOMAIN,
+    MANUAL_REDIRECT_URI,
+    OAUTH_CALLBACK_PATH,
+    OAUTH_STATE_TTL,
+)
 
 DATA_PENDING_OAUTH_STATES: HassKey[dict[str, PendingOAuthState]] = HassKey(
     f"{DOMAIN}_pending_oauth_states"
@@ -34,6 +40,52 @@ class PendingOAuthState:
     flow_id: str
     redirect_uri: str
     expires_at: datetime
+
+
+def async_parse_manual_callback(
+    hass: HomeAssistant, flow_id: str, callback_url: str
+) -> dict[str, str]:
+    """Validate and consume a complete localhost OAuth callback URL.
+
+    Ford sends the browser to localhost, where no listener is required.  The URL is
+    deliberately validated before consuming state so a typo cannot invalidate an
+    otherwise valid authorization attempt.
+    """
+    try:
+        parsed = urlparse(callback_url)
+        expected = urlparse(MANUAL_REDIRECT_URI)
+    except ValueError as err:
+        raise ValueError("invalid_callback") from err
+    if (
+        parsed.scheme != expected.scheme
+        or parsed.hostname != expected.hostname
+        or parsed.port != expected.port
+        or parsed.path != expected.path
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+    ):
+        raise ValueError("invalid_callback")
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    state_values = query.get("state", [])
+    code_values = query.get("code", [])
+    if len(state_values) != 1 or len(code_values) != 1:
+        raise ValueError("invalid_callback")
+    state, code = state_values[0], code_values[0]
+    if not state or not code:
+        raise ValueError("invalid_callback")
+
+    pending = async_get_pending_state(hass, state)
+    if (
+        pending is None
+        or pending.flow_id != flow_id
+        or pending.redirect_uri != MANUAL_REDIRECT_URI
+    ):
+        raise ValueError("invalid_state")
+    consumed = async_consume_pending_state(hass, state)
+    if consumed is None:
+        raise ValueError("invalid_state")
+    return {"code": code, "redirect_uri": consumed.redirect_uri}
 
 
 def async_get_redirect_uri(hass: HomeAssistant) -> str:
@@ -81,6 +133,17 @@ def async_consume_pending_state(
     if item is None or item.expires_at <= now:
         return None
     return item
+
+
+def async_get_pending_state(
+    hass: HomeAssistant, state: str
+) -> PendingOAuthState | None:
+    """Return a pending state without consuming it after clearing expired items."""
+    pending = hass.data.setdefault(DATA_PENDING_OAUTH_STATES, {})
+    now = _utcnow()
+    _remove_expired_states(pending, now)
+    item = pending.get(state)
+    return item if item and item.expires_at > now else None
 
 
 def async_register_callback_view(hass: HomeAssistant) -> None:

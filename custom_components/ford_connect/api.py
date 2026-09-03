@@ -31,6 +31,10 @@ class FordConnectRateLimitError(FordConnectApiError):
         self.retry_after = retry_after
 
 
+class FordConnectUnsupportedError(FordConnectApiError):
+    """Raised for an optional capability not enabled for this account."""
+
+
 class FordConnectApi:
     """Make authenticated, privacy-conscious requests to Ford Connect."""
 
@@ -50,12 +54,50 @@ class FordConnectApi:
         """Return the account telemetry response."""
         return await self._async_get_json("/telemetry")
 
-    async def _async_get_json(self, path: str) -> Any:
+    async def async_get_vehicle_health_alerts(self) -> Any:
+        """Return official vehicle-health alerts when the capability is available."""
+        return await self._async_get_json("/vehicle-health/alerts", optional=True)
+
+    async def async_get_wallbox(self) -> Any:
+        """Return wallbox information when the account has a supported wallbox."""
+        return await self._async_get_json("/wallbox", optional=True)
+
+    async def async_get_departure_times(self) -> Any:
+        """Return configured EV departure times when supported."""
+        return await self._async_get_json("/electric/departure-times", optional=True)
+
+    async def async_get_charge_schedules(self) -> Any:
+        """Return configured EV charging schedules when supported."""
+        return await self._async_get_json("/electric/charge-schedules", optional=True)
+
+    async def async_get_charging_station_activity(
+        self, start_date: str, end_date: str, charging_station_id: str
+    ) -> Any:
+        """Return bounded FCCS activity for a discovered charging station only."""
+        return await self._async_get_json(
+            "/fccs",
+            optional=True,
+            params={"startDate": start_date, "endDate": end_date},
+            headers={"chargingStationId": charging_station_id},
+        )
+
+    async def _async_get_json(
+        self,
+        path: str,
+        *,
+        optional: bool = False,
+        params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
         """Get a JSON resource and retry exactly once after a 401 refresh."""
         for attempt in range(2):
             try:
                 response = await self._oauth_session.async_request(
-                    "GET", f"{API_BASE_URL}{path}", timeout=30
+                    "GET",
+                    f"{API_BASE_URL}{path}",
+                    timeout=30,
+                    params=params,
+                    headers=headers,
                 )
             except ClientError as err:
                 raise FordConnectApiError(
@@ -76,6 +118,10 @@ class FordConnectApi:
                 if response.status >= 500:
                     raise FordConnectApiError(
                         "Ford Connect service is temporarily unavailable"
+                    )
+                if optional and response.status == 404:
+                    raise FordConnectUnsupportedError(
+                        "Ford Connect capability is not available"
                     )
                 if response.status >= 400:
                     raise FordConnectApiError(

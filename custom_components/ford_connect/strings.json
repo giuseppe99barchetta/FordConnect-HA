@@ -9,9 +9,21 @@
       "oauth_timeout": "Ford Connect OAuth timed out.",
       "oauth_error": "Ford Connect returned an invalid OAuth response.",
       "external_url_required": "Ford Connect requires a configured, externally reachable HTTPS URL. Set Home Assistant's External URL and try again.",
-      "reauth_successful": "Reauthentication was successful."
+      "reauth_successful": "Reauthentication was successful.",
+      "invalid_callback": "The callback URL must be the complete Ford redirect to http://localhost:8080/callback.",
+      "invalid_state": "The authorization link has expired, was already used, or does not belong to this setup attempt."
     },
     "step": {
+      "user": {
+        "title": "Authentication method",
+        "description": "Automatic uses Home Assistant's externally reachable HTTPS URL. Manual works on a LAN-only Home Assistant.",
+        "data": {"auth_mode": "Authentication method"}
+      },
+      "manual_auth": {
+        "title": "Complete manual Ford authentication",
+        "description": "Open [Ford authorization]({authorization_url}), then copy the complete localhost callback URL from your browser address bar. A connection error is expected.",
+        "data": {"callback_url": "Complete callback URL"}
+      },
       "reauth_confirm": {
         "title": "Reauthenticate Ford Connect",
         "description": "Ford Connect needs to authenticate again."
@@ -35,6 +47,23 @@
       "engine_speed": {"name": "Engine speed"},
       "compass_direction": {"name": "Compass direction"},
       "heading": {"name": "Heading"},
+      "gear_lever_position": {"name": "Gear lever position"},
+      "accelerator_pedal_position": {"name": "Accelerator pedal position"},
+      "acceleration_x": {"name": "Acceleration X"},
+      "acceleration_y": {"name": "Acceleration Y"},
+      "acceleration_z": {"name": "Acceleration Z"},
+      "brake_pedal_status": {"name": "Brake pedal status"},
+      "brake_torque": {"name": "Brake torque"},
+      "yaw_rate": {"name": "Yaw rate"},
+      "remote_start_countdown": {"name": "Remote start countdown"},
+      "vehicle_lifecycle_mode": {"name": "Vehicle lifecycle mode"},
+      "torque_at_transmission": {"name": "Transmission torque"},
+      "wheel_torque_status": {"name": "Wheel torque status"},
+      "seat_belt_status": {"name": "Seat belt status"},
+      "panic_alarm_status": {"name": "Panic alarm status"},
+      "trip_xev_battery_distance": {"name": "Trip XEV battery distance"},
+      "display_system_of_measure": {"name": "Display system of measure"},
+      "remote_start_run_duration": {"name": "Remote start run duration"},
       "tire_pressure_front_left": {"name": "Front left tire pressure"},
       "tire_pressure_front_right": {"name": "Front right tire pressure"},
       "tire_pressure_rear_left": {"name": "Rear left tire pressure"},
@@ -51,7 +80,11 @@
       "door_front_right": {"name": "Front right door open"},
       "door_rear_left": {"name": "Rear left door open"},
       "door_rear_right": {"name": "Rear right door open"},
-      "door_tailgate": {"name": "Tailgate open"}
+      "door_tailgate": {"name": "Tailgate open"},
+      "tire_pressure_warning_front_left": {"name": "Front left tire pressure warning"},
+      "tire_pressure_warning_front_right": {"name": "Front right tire pressure warning"},
+      "tire_pressure_warning_rear_left": {"name": "Rear left tire pressure warning"},
+      "tire_pressure_warning_rear_right": {"name": "Rear right tire pressure warning"}
     },
     "device_tracker": {
       "vehicle": {"name": "Vehicle location"}

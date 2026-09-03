@@ -3,9 +3,13 @@
   "config": {
     "abort": {
       "missing_credentials": "Aggiungi le credenziali dell'applicazione Ford Connect prima di configurare l'integrazione.",
-      "reauth_successful": "La riautenticazione Ã¨ riuscita."
+      "reauth_successful": "La riautenticazione è riuscita.",
+      "invalid_callback": "L'URL di callback deve essere il reindirizzamento Ford completo a http://localhost:8080/callback.",
+      "invalid_state": "Il collegamento di autorizzazione è scaduto, è già stato usato o non appartiene a questa configurazione."
     },
     "step": {
+      "user": {"title": "Metodo di autenticazione", "description": "Automatico usa l'URL HTTPS esterno di Home Assistant. Manuale funziona anche con Home Assistant solo in LAN.", "data": {"auth_mode": "Metodo di autenticazione"}},
+      "manual_auth": {"title": "Completa l'autenticazione Ford manuale", "description": "Apri [l'autorizzazione Ford]({authorization_url}), poi copia l'URL di callback localhost completo dalla barra dell'indirizzo. Un errore di connessione è previsto.", "data": {"callback_url": "URL di callback completo"}},
       "reauth_confirm": {"title": "Riautentica Ford Connect", "description": "Ford Connect deve autenticarsi nuovamente."}
     }
   },

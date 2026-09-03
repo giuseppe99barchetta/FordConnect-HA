@@ -18,6 +18,7 @@ from .api import (
     FordConnectApiError,
     FordConnectAuthenticationError,
     FordConnectRateLimitError,
+    FordConnectUnsupportedError,
 )
 from .const import DOMAIN, UPDATE_INTERVAL
 from .telemetry import telemetry_records, vehicle_records
@@ -44,6 +45,8 @@ class FordConnectData:
 
     vehicles: dict[str, FordVehicleData]
     queried_at: datetime
+    endpoint_data: dict[str, Any]
+    endpoint_status: dict[str, str]
 
 
 class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
@@ -59,6 +62,9 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
         )
         self.api = api
         self._not_before: datetime | None = None
+        self._endpoint_data: dict[str, Any] = {}
+        self._endpoint_status: dict[str, str] = {}
+        self._endpoint_updated: dict[str, datetime] = {}
 
     async def _async_update_data(self) -> FordConnectData:
         """Fetch account data while preserving entities during partial failures."""
@@ -79,6 +85,7 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
         except FordConnectApiError as err:
             raise UpdateFailed(str(err)) from err
 
+        await self._async_refresh_optional_endpoints()
         garage = vehicle_records(garage_payload)
         telemetry = telemetry_records(telemetry_payload)
         vehicle_ids = set(garage) | set(telemetry)
@@ -92,4 +99,54 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
                 for vehicle_id in vehicle_ids
             },
             queried_at=dt_util.utcnow(),
+            endpoint_data=dict(self._endpoint_data),
+            endpoint_status=dict(self._endpoint_status),
         )
+
+    async def _async_refresh_optional_endpoints(self) -> None:
+        """Refresh slower, optional endpoints without degrading telemetry.
+
+        The published endpoint list does not establish response schemas for every
+        account. Payloads are cached for diagnostics and only schema-safe summaries
+        are exposed by entities.
+        """
+        now = dt_util.utcnow()
+        endpoints = {
+            "vehicle_health_alerts": (
+                self.api.async_get_vehicle_health_alerts,
+                timedelta(hours=1),
+            ),
+            "wallbox": (self.api.async_get_wallbox, timedelta(hours=6)),
+            "departure_times": (self.api.async_get_departure_times, timedelta(hours=6)),
+            "charge_schedules": (
+                self.api.async_get_charge_schedules,
+                timedelta(hours=6),
+            ),
+        }
+        due = {
+            name: request
+            for name, (request, interval) in endpoints.items()
+            if now
+            - self._endpoint_updated.get(name, datetime.min.replace(tzinfo=now.tzinfo))
+            >= interval
+        }
+        if not due:
+            return
+        results = await asyncio.gather(*due.values(), return_exceptions=True)
+        for name, result in zip(due, results, strict=True):
+            self._endpoint_updated[name] = now
+            if isinstance(result, FordConnectAuthenticationError):
+                raise result
+            if isinstance(result, FordConnectUnsupportedError):
+                self._endpoint_status[name] = "unsupported"
+            elif isinstance(result, FordConnectRateLimitError):
+                self._endpoint_status[name] = "rate_limited"
+                if result.retry_after is not None:
+                    self._not_before = now + timedelta(seconds=result.retry_after)
+            elif isinstance(result, FordConnectApiError):
+                self._endpoint_status[name] = "error"
+            elif isinstance(result, Exception):
+                self._endpoint_status[name] = "error"
+            else:
+                self._endpoint_data[name] = result
+                self._endpoint_status[name] = "ok"

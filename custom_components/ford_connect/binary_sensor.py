@@ -31,6 +31,7 @@ class FordBinaryDescription(BinarySensorEntityDescription):
 
     metric: str
     on_values: frozenset[str]
+    off_values: frozenset[str] = frozenset()
 
 
 BINARY_SENSORS: tuple[FordBinaryDescription, ...] = (
@@ -69,6 +70,7 @@ BINARY_SENSORS: tuple[FordBinaryDescription, ...] = (
         translation_key="tire_pressure_system_problem",
         metric="tirePressureSystemStatus",
         on_values=frozenset({"FAULT", "WARNING", "ERROR", "MALFUNCTION"}),
+        off_values=frozenset({"NORMAL_OPERATION"}),
     ),
 )
 DOORS = ("front_left", "front_right", "rear_left", "rear_right", "tailgate")
@@ -91,6 +93,16 @@ async def async_setup_entry(
             FordDoorBinarySensor(coordinator, vehicle_id, door)
             for vehicle_id in coordinator.data.vehicles
             for door in DOORS
+        ]
+        + [
+            FordTirePressureWarningBinarySensor(coordinator, vehicle_id, position)
+            for vehicle_id in coordinator.data.vehicles
+            for position in ("front_left", "front_right", "rear_left", "rear_right")
+            if matching_metric_record(
+                coordinator.data.vehicles[vehicle_id].metrics,
+                "tirePressureStatus",
+                vehicleWheel=position.upper(),
+            )
         ]
     )
 
@@ -128,7 +140,12 @@ class FordStatusBinarySensor(FordConnectEntity, BinarySensorEntity):
         value = value_from_metric(self._metric)
         if not isinstance(value, str):
             return None
-        return value.upper() in self.entity_description.on_values
+        normalized = value.upper()
+        if normalized in self.entity_description.on_values:
+            return True
+        if self.entity_description.off_values:
+            return False if normalized in self.entity_description.off_values else None
+        return False
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -136,6 +153,53 @@ class FordStatusBinarySensor(FordConnectEntity, BinarySensorEntity):
         metric = self._metric
         attributes = metric_attributes(metric)
         if timestamp := update_time_from_metric(metric):
+            attributes["ford_update_time"] = timestamp
+        return attributes
+
+
+class FordTirePressureWarningBinarySensor(FordConnectEntity, BinarySensorEntity):
+    """Expose a per-wheel warning only for Ford states with known meaning."""
+
+    _ON_VALUES = frozenset({"FAULT", "WARNING", "ERROR", "MALFUNCTION", "LOW"})
+    _OFF_VALUES = frozenset({"NORMAL", "NORMAL_OPERATION", "OK"})
+
+    def __init__(
+        self, coordinator: FordConnectCoordinator, vehicle_id: str, position: str
+    ) -> None:
+        super().__init__(coordinator, vehicle_id)
+        self._position = position
+        self._attr_translation_key = f"tire_pressure_warning_{position}"
+        self._attr_unique_id = f"{vehicle_id}_{position}_tire_pressure_warning"
+
+    @property
+    def _record(self) -> dict[str, Any] | None:
+        if not self.vehicle:
+            return None
+        record = matching_metric_record(
+            self.vehicle.metrics,
+            "tirePressureStatus",
+            vehicleWheel=self._position.upper(),
+        )
+        return dict(record) if record else None
+
+    @property
+    def is_on(self) -> bool | None:
+        value = value_from_metric(self._record)
+        if isinstance(value, dict):
+            value = value.get("status")
+        if not isinstance(value, str):
+            return None
+        normalized = value.upper()
+        if normalized in self._ON_VALUES:
+            return True
+        if normalized in self._OFF_VALUES:
+            return False
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attributes = metric_attributes(self._record)
+        if timestamp := update_time_from_metric(self._record):
             attributes["ford_update_time"] = timestamp
         return attributes
 

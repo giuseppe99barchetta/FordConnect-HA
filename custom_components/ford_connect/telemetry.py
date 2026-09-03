@@ -15,6 +15,16 @@ def value_from_metric(metric: Any) -> Any:
     return metric.get("value") if isinstance(metric, Mapping) else None
 
 
+def scalar_value_from_metric(metric: Any, key: str | None = None) -> Any:
+    """Return a scalar metric value, never a mapping or list entity state."""
+    value = value_from_metric(metric)
+    if isinstance(value, Mapping) and key:
+        value = value.get(key)
+    elif value is None and isinstance(metric, Mapping) and key:
+        value = metric.get(key)
+    return value if not isinstance(value, (Mapping, list, tuple, set)) else None
+
+
 def update_time_from_metric(metric: Any) -> str | None:
     """Return Ford's per-metric timestamp if it is present."""
     if not isinstance(metric, Mapping):

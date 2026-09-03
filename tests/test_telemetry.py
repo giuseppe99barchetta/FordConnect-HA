@@ -14,6 +14,7 @@ _SPEC.loader.exec_module(_TELEMETRY)
 location_from_metrics = _TELEMETRY.location_from_metrics
 normalized_door_name = _TELEMETRY.normalized_door_name
 normalized_wheel_name = _TELEMETRY.normalized_wheel_name
+scalar_value_from_metric = _TELEMETRY.scalar_value_from_metric
 vehicle_records = _TELEMETRY.vehicle_records
 
 
@@ -50,3 +51,12 @@ def test_wheel_mapping_and_missing_metrics_are_safe() -> None:
     """Tire identifiers are normalized and absent values remain harmless."""
     assert normalized_wheel_name({"vehicleWheel": "REAR_RIGHT"}) == "rear_right"
     assert location_from_metrics({}) is None
+
+
+def test_heading_and_acceleration_values_are_scalar() -> None:
+    """Structured Ford telemetry never becomes an invalid Home Assistant state."""
+    heading = {"value": {"heading": 283.0, "uncertainty": 0.0}}
+    acceleration = {"value": {"x": -0.61, "y": 0.16, "z": 0.0}}
+    assert scalar_value_from_metric(heading, "heading") == 283.0
+    assert scalar_value_from_metric(acceleration, "x") == -0.61
+    assert scalar_value_from_metric(heading) is None

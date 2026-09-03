@@ -17,6 +17,7 @@ from yarl import URL
 
 from .const import (
     AUTHORIZE_URL,
+    MANUAL_REDIRECT_URI,
     OAUTH_AUTHORIZE_SCOPE,
     OAUTH_TOKEN_SCOPE,
     TOKEN_URL,
@@ -39,7 +40,16 @@ class FordConnectOAuth2Implementation(LocalOAuth2Implementation):
     async def async_generate_authorize_url(self, flow_id: str) -> str:
         """Generate Ford's authorization URL with a one-time compatible state."""
         async_register_callback_view(self.hass)
-        redirect_uri = self.redirect_uri
+        return await self._async_generate_authorize_url(flow_id, self.redirect_uri)
+
+    async def async_generate_manual_authorize_url(self, flow_id: str) -> str:
+        """Generate an authorization URL for copy/paste localhost completion."""
+        return await self._async_generate_authorize_url(flow_id, MANUAL_REDIRECT_URI)
+
+    async def _async_generate_authorize_url(
+        self, flow_id: str, redirect_uri: str
+    ) -> str:
+        """Generate a Ford URL and bind its state to the exact redirect URI."""
         state = async_create_pending_state(self.hass, flow_id, redirect_uri)
         return str(
             URL(self.authorize_url).with_query(
