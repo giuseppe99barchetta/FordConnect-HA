@@ -1,0 +1,59 @@
+{
+  "title": "Ford Connect",
+  "config": {
+    "abort": {
+      "missing_credentials": "Add Ford Connect application credentials before configuring the integration.",
+      "oauth_implementation_unavailable": "Ford Connect application credentials are temporarily unavailable.",
+      "oauth_failed": "Ford Connect could not complete OAuth authentication.",
+      "oauth_unauthorized": "Ford Connect rejected the authorization request.",
+      "oauth_timeout": "Ford Connect OAuth timed out.",
+      "oauth_error": "Ford Connect returned an invalid OAuth response.",
+      "reauth_successful": "Reauthentication was successful."
+    },
+    "step": {
+      "reauth_confirm": {
+        "title": "Reauthenticate Ford Connect",
+        "description": "Ford Connect needs to authenticate again."
+      }
+    }
+  },
+  "application_credentials": {
+    "description": "Create an application at [Ford Developer]({developer_url}). Register the redirect URI documented in this integration's README, then enter the Client ID and Client Secret here."
+  },
+  "entity": {
+    "sensor": {
+      "fuel_level": {"name": "Fuel level"},
+      "fuel_range": {"name": "Fuel range"},
+      "odometer": {"name": "Odometer"},
+      "battery_voltage": {"name": "Battery voltage"},
+      "battery_state_of_charge": {"name": "Battery state of charge"},
+      "oil_life": {"name": "Oil life remaining"},
+      "outside_temperature": {"name": "Outside temperature"},
+      "engine_coolant_temperature": {"name": "Engine coolant temperature"},
+      "speed": {"name": "Speed"},
+      "engine_speed": {"name": "Engine speed"},
+      "compass_direction": {"name": "Compass direction"},
+      "heading": {"name": "Heading"},
+      "tire_pressure_front_left": {"name": "Front left tire pressure"},
+      "tire_pressure_front_right": {"name": "Front right tire pressure"},
+      "tire_pressure_rear_left": {"name": "Rear left tire pressure"},
+      "tire_pressure_rear_right": {"name": "Rear right tire pressure"}
+    },
+    "binary_sensor": {
+      "ignition": {"name": "Ignition on"},
+      "hood": {"name": "Hood open"},
+      "alarm": {"name": "Alarm active"},
+      "parking_brake": {"name": "Parking brake engaged"},
+      "doors_locked": {"name": "Doors locked"},
+      "tire_pressure_system_problem": {"name": "Tire pressure system problem"},
+      "door_front_left": {"name": "Front left door open"},
+      "door_front_right": {"name": "Front right door open"},
+      "door_rear_left": {"name": "Rear left door open"},
+      "door_rear_right": {"name": "Rear right door open"},
+      "door_tailgate": {"name": "Tailgate open"}
+    },
+    "device_tracker": {
+      "vehicle": {"name": "Vehicle location"}
+    }
+  }
+}

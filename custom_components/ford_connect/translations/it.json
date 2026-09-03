@@ -1,0 +1,13 @@
+{
+  "title": "Ford Connect",
+  "config": {
+    "abort": {
+      "missing_credentials": "Aggiungi le credenziali dell'applicazione Ford Connect prima di configurare l'integrazione.",
+      "reauth_successful": "La riautenticazione Ã¨ riuscita."
+    },
+    "step": {
+      "reauth_confirm": {"title": "Riautentica Ford Connect", "description": "Ford Connect deve autenticarsi nuovamente."}
+    }
+  },
+  "application_credentials": {"description": "Crea un'applicazione su [Ford Developer]({developer_url}), registra l'URI di reindirizzamento indicato nel README e inserisci qui Client ID e Client Secret."}
+}
