@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -65,6 +64,7 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
         self._endpoint_data: dict[str, Any] = {}
         self._endpoint_status: dict[str, str] = {}
         self._endpoint_updated: dict[str, datetime] = {}
+        self._initial_optional_refresh_pending = True
 
     async def _async_update_data(self) -> FordConnectData:
         """Fetch account data while preserving entities during partial failures."""
@@ -73,9 +73,10 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
                 "Ford Connect is waiting for its requested retry interval"
             )
         try:
-            garage_payload, telemetry_payload = await asyncio.gather(
-                self.api.async_get_garage(), self.api.async_get_telemetry()
-            )
+            # Ford can rate-limit an account when several query resources are
+            # requested at once. Telemetry is the priority, so avoid a setup burst.
+            garage_payload = await self.api.async_get_garage()
+            telemetry_payload = await self.api.async_get_telemetry()
         except FordConnectAuthenticationError as err:
             raise ConfigEntryAuthFailed("Ford Connect authentication failed") from err
         except FordConnectRateLimitError as err:
@@ -111,6 +112,15 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
         are exposed by entities.
         """
         now = dt_util.utcnow()
+        if self._initial_optional_refresh_pending:
+            self._initial_optional_refresh_pending = False
+            self._endpoint_updated = {
+                "vehicle_health_alerts": now,
+                "wallbox": now,
+                "departure_times": now,
+                "charge_schedules": now,
+            }
+            return
         endpoints = {
             "vehicle_health_alerts": (
                 self.api.async_get_vehicle_health_alerts,
@@ -123,32 +133,34 @@ class FordConnectCoordinator(DataUpdateCoordinator[FordConnectData]):
                 timedelta(hours=6),
             ),
         }
-        due = {
-            name: request
+        due = [
+            (name, request)
             for name, (request, interval) in endpoints.items()
             if now
             - self._endpoint_updated.get(name, datetime.min.replace(tzinfo=now.tzinfo))
             >= interval
-        }
+        ]
         if not due:
             return
-        results = await asyncio.gather(
-            *(request() for request in due.values()), return_exceptions=True
-        )
-        for name, result in zip(due, results, strict=True):
-            self._endpoint_updated[name] = now
-            if isinstance(result, FordConnectAuthenticationError):
-                raise result
-            if isinstance(result, FordConnectUnsupportedError):
-                self._endpoint_status[name] = "unsupported"
-            elif isinstance(result, FordConnectRateLimitError):
-                self._endpoint_status[name] = "rate_limited"
-                if result.retry_after is not None:
-                    self._not_before = now + timedelta(seconds=result.retry_after)
-            elif isinstance(result, FordConnectApiError):
-                self._endpoint_status[name] = "error"
-            elif isinstance(result, Exception):
-                self._endpoint_status[name] = "error"
-            else:
-                self._endpoint_data[name] = result
-                self._endpoint_status[name] = "ok"
+        name, request = due[0]
+        result: Any
+        try:
+            result = await request()
+        except Exception as err:  # Optional endpoint failures never hide telemetry.
+            result = err
+        self._endpoint_updated[name] = now
+        if isinstance(result, FordConnectAuthenticationError):
+            raise result
+        if isinstance(result, FordConnectUnsupportedError):
+            self._endpoint_status[name] = "unsupported"
+        elif isinstance(result, FordConnectRateLimitError):
+            self._endpoint_status[name] = "rate_limited"
+            if result.retry_after is not None:
+                self._not_before = now + timedelta(seconds=result.retry_after)
+        elif isinstance(result, FordConnectApiError):
+            self._endpoint_status[name] = "error"
+        elif isinstance(result, Exception):
+            self._endpoint_status[name] = "error"
+        else:
+            self._endpoint_data[name] = result
+            self._endpoint_status[name] = "ok"
